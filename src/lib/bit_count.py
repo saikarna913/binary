@@ -43,3 +43,13 @@ def bit_count(input):
         pass
 
     return bit_str
+
+def to_twos_complement(binary_str):
+    # Step 1: Invert all the bits
+    inverted = ''.join('1' if bit == '0' else '0' for bit in binary_str)
+
+    # Step 2: Add 1 to the inverted binary number
+    twos_complement = bin(int(inverted, 2) + 1)[2:]
+
+    # Ensure the result has the same length as the original binary string
+    return twos_complement.zfill(len(binary_str))
