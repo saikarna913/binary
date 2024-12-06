@@ -32,12 +32,12 @@ from .get_answer import *
 class BinaryWindow(Adw.ApplicationWindow):
     __gtype_name__ = 'BinaryWindow'
 
-    input_bits = Gtk.Template.Child() # individual bits in input bits dropdown
-    output_bits = Gtk.Template.Child() # individual bits in output bits dropdown
-    in_bit_label = Gtk.Template.Child() # input bit counter label
-    out_bit_label = Gtk.Template.Child() # input bit counter label
-    input_entry = Gtk.Template.Child() # user input
-    output_entry = Gtk.Template.Child() # output label
+    input_bits = Gtk.Template.Child()  # individual bits in input bits dropdown
+    output_bits = Gtk.Template.Child()  # individual bits in output bits dropdown
+    in_bit_label = Gtk.Template.Child()  # input bit counter label
+    out_bit_label = Gtk.Template.Child()  # input bit counter label
+    input_entry = Gtk.Template.Child()  # user input
+    output_entry = Gtk.Template.Child()  # output label
     in_dropdown = Gtk.Template.Child()
     out_dropdown = Gtk.Template.Child()
     in_spin = Gtk.Template.Child()
@@ -46,19 +46,22 @@ class BinaryWindow(Adw.ApplicationWindow):
     # Translators: this string is used to describe how many bits there are.
     bits_text = _("bits")
 
+    # Add "Two's Complement" to the bases list
     bases = Gtk.StringList.new(None)
     bases.append(dgettext("Number base", "Binary"))
     bases.append(_("Octal"))
     bases.append(_("Decimal"))
     bases.append(_("Hexadecimal"))
+    bases.append(_("Two's Complement"))
     bases.append(_("Other"))
 
     bases_dict = {
-        0:2,
-        1:8,
-        2:10,
-        3:16,
-        4:-1
+        0: 2,   # Binary
+        1: 8,   # Octal
+        2: 10,  # Decimal
+        3: 16,  # Hexadecimal
+        4: -2,  # Two's Complement
+        5: -1   # Other (for custom base)
     }
 
     editable = False
@@ -70,10 +73,10 @@ class BinaryWindow(Adw.ApplicationWindow):
 
         self.in_spin.set_range(2, 36)
         self.in_spin.set_snap_to_ticks(True)
-        self.in_spin.set_increments(1,2)
+        self.in_spin.set_increments(1, 2)
         self.out_spin.set_range(2, 36)
         self.out_spin.set_snap_to_ticks(True)
-        self.out_spin.set_increments(1,2)
+        self.out_spin.set_increments(1, 2)
 
         self.settings = Gio.Settings(schema_id="io.github.fizzyizzy05.binary")
         in_base = self.settings.get_int("input-base")
@@ -109,37 +112,42 @@ class BinaryWindow(Adw.ApplicationWindow):
         in_str = self.input_entry.get_text()
         ans = ""
         if in_str != "":
-            if self.out_dropdown.get_selected() < 4:
-                out_base = self.bases_dict[self.out_dropdown.get_selected()]
-            else:
-                out_base = int(self.out_spin.get_value())
-            if self.in_dropdown.get_selected() < 4:
-                in_base = self.bases_dict[self.in_dropdown.get_selected()]
-            else:
-                in_base = int(self.in_spin.get_value())
-            ans = get_answer(in_str, in_base, out_base)
-            if ans == "char":
-                self.input_entry.add_css_class("error")
-                self.input_entry.set_tooltip_text(_("Invalid input"))
-                self.output_entry.set_tooltip_text(None)
-            elif ans == "char_dual":
-                self.input_entry.add_css_class("error")
-                self.input_entry.set_tooltip_text(_("Invalid input"))
-                self.output_entry.add_css_class("error")
-                self.output_entry.set_tooltip_text(_("Invalid input"))
-                self.output_entry.set_text(in_str)
-            else:
+            # Check if Two's Complement is selected
+            if self.out_dropdown.get_selected() == 4:
+                ans = to_twos_complement(in_str)
                 self.output_entry.set_text(ans)
-                self.input_entry.remove_css_class("error")
-                self.output_entry.remove_css_class("error")
-                self.output_entry.set_tooltip_text(None)
-                for char in in_str:
-                    if char.islower():
-                        self.input_entry.set_text(in_str.upper())
-                        self.input_entry.set_position(-1)
-                        return
+            else:
+                if self.out_dropdown.get_selected() < 4:
+                    out_base = self.bases_dict[self.out_dropdown.get_selected()]
+                else:
+                    out_base = int(self.out_spin.get_value())
+
+                if self.in_dropdown.get_selected() < 4:
+                    in_base = self.bases_dict[self.in_dropdown.get_selected()]
+                else:
+                    in_base = int(self.in_spin.get_value())
+
+                ans = get_answer(in_str, in_base, out_base)
+
+                if ans == "char":
+                    self.input_entry.add_css_class("error")
+                    self.input_entry.set_tooltip_text(_("Invalid input"))
+                    self.output_entry.set_tooltip_text(None)
+                elif ans == "char_dual":
+                    self.input_entry.add_css_class("error")
+                    self.input_entry.set_tooltip_text(_("Invalid input"))
+                    self.output_entry.add_css_class("error")
+                    self.output_entry.set_tooltip_text(_("Invalid input"))
+                    self.output_entry.set_text(in_str)
+                else:
+                    self.output_entry.set_text(ans)
+                    self.input_entry.remove_css_class("error")
+                    self.output_entry.remove_css_class("error")
+                    self.output_entry.set_tooltip_text(None)
+
         else:
             self.blank()
+
         self.toggle_mono()
         if ans != "char" and ans != "char_dual":
             self.update_bits()
@@ -151,37 +159,48 @@ class BinaryWindow(Adw.ApplicationWindow):
             in_str = self.output_entry.get_text()
             ans = ""
             if in_str != "":
-                if self.out_dropdown.get_selected() < 4:
-                    in_base = self.bases_dict[self.out_dropdown.get_selected()]
-                else:
-                    in_base = int(self.out_spin.get_value())
-                if self.in_dropdown.get_selected() < 4:
-                    out_base = self.bases_dict[self.in_dropdown.get_selected()]
-                else:
-                    out_base = int(self.in_spin.get_value())
-                ans = get_answer(input=in_str, in_base=in_base, out_base=out_base)
-                if ans == "char":
-                    self.output_entry.add_css_class("error")
-                    self.input_entry.remove_css_class("error")
-                    self.output_entry.set_tooltip_text(_("Invalid input"))
-                    self.input_entry.set_tooltip_text(None)
-                elif ans == "char_dual":
-                    self.input_entry.add_css_class("error")
-                    self.input_entry.set_tooltip_text(_("Invalid input"))
-                    self.output_entry.add_css_class("error")
-                    self.output_entry.set_tooltip_text(_("Invalid input"))
-                    self.input_entry.set_text(in_str)
-                else:
+                # Check if Two's Complement is selected
+                if self.in_dropdown.get_selected() == 4:
+                    ans = to_twos_complement(in_str)
                     self.input_entry.set_text(ans)
-                    self.input_entry.remove_css_class("error")
-                    self.output_entry.remove_css_class("error")
-                    self.input_entry.set_tooltip_text(None)
+                else:
+                    if self.out_dropdown.get_selected() < 4:
+                        in_base = self.bases_dict[self.out_dropdown.get_selected()]
+                    else:
+                        in_base = int(self.out_spin.get_value())
+
+                    if self.in_dropdown.get_selected() < 4:
+                        out_base = self.bases_dict[self.in_dropdown.get_selected()]
+                    else:
+                        out_base = int(self.in_spin.get_value())
+
+                    ans = get_answer(input=in_str, in_base=in_base, out_base=out_base)
+
+                    if ans == "char":
+                        self.output_entry.add_css_class("error")
+                        self.input_entry.remove_css_class("error")
+                        self.output_entry.set_tooltip_text(_("Invalid input"))
+                        self.input_entry.set_tooltip_text(None)
+                    elif ans == "char_dual":
+                        self.input_entry.add_css_class("error")
+                        self.input_entry.set_tooltip_text(_("Invalid input"))
+                        self.output_entry.add_css_class("error")
+                        self.output_entry.set_tooltip_text(_("Invalid input"))
+                        self.input_entry.set_text(in_str)
+                    else:
+                        self.input_entry.set_text(ans)
+                        self.input_entry.remove_css_class("error")
+                        self.output_entry.remove_css_class("error")
+                        self.input_entry.set_tooltip_text(None)
+
                 self.output_entry.set_position(-1)
             else:
                 self.blank()
+
             self.toggle_mono()
             if ans != "char" and ans != "char_dual":
                 self.update_bits()
+
             self.editable = True
 
     @Gtk.Template.Callback()
@@ -190,8 +209,8 @@ class BinaryWindow(Adw.ApplicationWindow):
         self.settings.set_int("input-base", self.in_dropdown.get_selected())
         self.settings.set_int("output-base", self.out_dropdown.get_selected())
 
+    # Blank the output and reset the input fields
     def blank(self, *kwargs):
-        # Return the label to it's original content. Using a function for this ensures it's always the same value, and makes it more consistent.
         self.output_entry.set_text("")
         self.input_entry.set_text("")
         self.update_bits()
@@ -203,7 +222,6 @@ class BinaryWindow(Adw.ApplicationWindow):
         in_count = len(self.input_entry.get_text())
         out_count = len(self.output_entry.get_text())
 
-        # Translators: plural count for the input bits
         in_bits_text = ngettext(
             "%(in_count)d bit",
             "%(in_count)d bits",
@@ -212,7 +230,6 @@ class BinaryWindow(Adw.ApplicationWindow):
             "in_count": in_count,
         }
 
-        # Translators: plural count for the output bits
         out_bits_text = ngettext(
             "%(out_count)d bit",
             "%(out_count)d bits",
@@ -244,28 +261,13 @@ class BinaryWindow(Adw.ApplicationWindow):
         else:
             self.output_entry.remove_css_class("mono")
 
-    def toggle_bit_counter(self, *kwargs):
-        if self.out_dropdown.get_selected() == 0 and self.in_dropdown.get_selected() == 0:
-            self.in_bit_label.set_visible(True)
-            self.out_bit_label.set_visible(True)
-        elif self.in_dropdown.get_selected() == 0:
-            self.in_bit_label.set_visible(True)
-            self.out_bit_label.set_visible(False)
-        elif self.out_dropdown.get_selected() == 0:
-            self.in_bit_label.set_visible(False)
-            self.out_bit_label.set_visible(True)
-        else:
-            self.in_bit_label.set_visible(False)
-            self.out_bit_label.set_visible(False)
+    def toggle_bit_counter(self):
+        self.in_bit_label.set_sensitive(self.input_entry.get_text() != "")
+        self.out_bit_label.set_sensitive(self.output_entry.get_text() != "")
 
-    def toggle_base_spin(self, *kwargs):
-        if self.in_dropdown.get_selected() == 4:
-            self.in_spin.set_visible(True)
+    def toggle_base_spin(self):
+        out_base = self.bases_dict[self.out_dropdown.get_selected()]
+        if out_base == -1:
+            self.out_spin.set_sensitive(True)
         else:
-            self.in_spin.set_visible(False)
-        if self.out_dropdown.get_selected() == 4:
-            self.out_spin.set_visible(True)
-        else:
-            self.out_spin.set_visible(False)
-
-
+            self.out_spin.set_sensitive(False)
